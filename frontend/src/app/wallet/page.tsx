@@ -9,12 +9,17 @@ import Link from 'next/link';
 export default function MPCWalletPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeView, setActiveView] = useState<'dashboard' | 'create'>('dashboard');
+  const [pendingTreasuryName, setPendingTreasuryName] = useState<string>('');
 
   const handleWalletCreated = () => {
     // Force dashboard to refresh by updating the key
     setRefreshKey(prev => prev + 1);
     // Switch back to dashboard view
     setActiveView('dashboard');
+  };
+
+  const handleTreasuryNameSet = (name: string) => {
+    setPendingTreasuryName(name);
   };
 
   return (
@@ -118,6 +123,7 @@ export default function MPCWalletPage() {
           <>
             <MPCWalletDashboard 
               key={refreshKey} 
+              pendingTreasuryName={pendingTreasuryName}
             />
           </>
         )}
@@ -135,7 +141,7 @@ export default function MPCWalletPage() {
                 Set up a secure multi-signature treasury for your Nigerian enterprise with cNGN support
               </p>
             </div>
-            <WalletCreator onWalletCreated={handleWalletCreated} />
+            <WalletCreator onWalletCreated={handleWalletCreated} onTreasuryNameSet={handleTreasuryNameSet} />
           </div>
         )}
       </div>

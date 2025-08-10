@@ -19,7 +19,8 @@ import {
   AlertCircle,
   BarChart3,
   Send,
-  Globe
+  Globe,
+  Edit3
 } from 'lucide-react';
 import { contractService, WalletInfo, TransactionInfo } from '../lib/contractService';
 import { walletNamingService } from '../lib/walletNaming';
@@ -28,6 +29,7 @@ import TransactionProposer from './TransactionProposer';
 import BulkPayment from './BulkPayment';
 import SignerManager from './SignerManager';
 import WalletCreator from './WalletCreator';
+import WalletNameEditor from './WalletNameEditor';
 
 interface WalletStats {
   totalSigners: number;
@@ -38,7 +40,7 @@ interface WalletStats {
   balance: string;
 }
 
-export default function WalletDashboard() {
+export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasuryName?: string }) {
   const { address } = useAccount();
   const [mounted, setMounted] = useState(false);
   
@@ -67,6 +69,9 @@ export default function WalletDashboard() {
   const [showSignerManager, setShowSignerManager] = useState(false);
   const [showBulkPayment, setShowBulkPayment] = useState(false);
   const [showWalletCreator, setShowWalletCreator] = useState(false);
+  const [showWalletNameEditor, setShowWalletNameEditor] = useState(false);
+  const [editingWalletAddress, setEditingWalletAddress] = useState<string>('');
+  const [editingWalletName, setEditingWalletName] = useState<string>('');
 
   // Fix hydration issue
   useEffect(() => {
@@ -98,13 +103,33 @@ export default function WalletDashboard() {
       console.log('Found wallets:', wallets);
       setUserWallets(wallets);
       
-      // Auto-select first wallet if available
+      // Check for temporary treasury names and associate them with newly created wallets
+      try {
+        const tempTreasuryNames = JSON.parse(localStorage.getItem('temp_treasury_names') || '{}');
+        const tempNames = Object.values(tempTreasuryNames) as string[];
+        
+        if (tempNames.length > 0 && wallets.length > 0) {
+          // Find wallets that don't have names yet and assign temporary names
+          wallets.forEach((wallet, index) => {
+            const existingName = walletNamingService.getWalletName(wallet);
+            if (!existingName && tempNames[index]) {
+              walletNamingService.setWalletName(wallet, tempNames[index]);
+            }
+          });
+          
+          // Clear temporary names
+          localStorage.removeItem('temp_treasury_names');
+        }
+      } catch (error) {
+        console.error('Error processing temporary treasury names:', error);
+      }
+      
       if (wallets.length > 0 && !selectedWallet) {
-        console.log('Auto-selecting first wallet:', wallets[0]);
         setSelectedWallet(wallets[0]);
       }
     } catch (error) {
-      console.error('Error loading user wallets:', error);
+      console.error('Error loading wallets:', error);
+      setWalletError('Failed to load wallets');
     } finally {
       setIsLoadingWallets(false);
     }
@@ -199,11 +224,20 @@ export default function WalletDashboard() {
   };
 
   const handleSignerManager = () => {
-    console.log('SIGNER MANAGER BUTTON CLICKED');
-    console.log('selectedWallet:', selectedWallet);
-    console.log('walletInfo:', walletInfo);
     setShowSignerManager(true);
-    console.log('showSignerManager set to true');
+  };
+
+  const handleEditWalletName = (walletAddress: string, currentName: string) => {
+    setEditingWalletAddress(walletAddress);
+    setEditingWalletName(currentName);
+    setShowWalletNameEditor(true);
+  };
+
+  const handleWalletNameUpdated = (newName: string) => {
+    // Update the local state to reflect the name change
+    setShowWalletNameEditor(false);
+    // Force a refresh of the wallet data
+    refreshWalletData();
   };
 
   const approveTransaction = (transaction: TransactionInfo) => {
@@ -235,6 +269,9 @@ export default function WalletDashboard() {
   };
 
   const getWalletDisplayName = (walletAddress: string, index: number) => {
+    if (pendingTreasuryName) {
+      return pendingTreasuryName;
+    }
     return walletNamingService.getWalletName(walletAddress) || 
            walletNamingService.generateDefaultName(index);
   };
@@ -347,6 +384,16 @@ export default function WalletDashboard() {
                             <span className="text-sm font-medium text-gray-900">Active Treasury</span>
                           </div>
                           <p className="text-xs text-gray-500">Click to manage</p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditWalletName(wallet, getWalletDisplayName(wallet, index));
+                            }}
+                            className="mt-2 p-2 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                            title="Edit treasury name"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -862,6 +909,15 @@ export default function WalletDashboard() {
         <WalletCreator
           onWalletCreated={handleTransactionAction}
           onClose={() => setShowWalletCreator(false)}
+        />
+      )}
+
+      {showWalletNameEditor && (
+        <WalletNameEditor
+          walletAddress={editingWalletAddress}
+          currentName={editingWalletName}
+          onNameUpdated={handleWalletNameUpdated}
+          onClose={() => setShowWalletNameEditor(false)}
         />
       )}
     </div>

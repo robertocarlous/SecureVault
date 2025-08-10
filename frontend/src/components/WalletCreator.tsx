@@ -4,14 +4,16 @@ import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { MultisigFactoryContract } from '../app/index';
 import { Plus, Building2, Users, Shield, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { walletNamingService } from '../lib/walletNaming';
 
 
 interface WalletCreatorProps {
   onWalletCreated?: () => void;
   onClose?: () => void;
+  onTreasuryNameSet?: (name: string) => void;
 }
 
-export default function WalletCreator({ onWalletCreated, onClose }: WalletCreatorProps) {
+export default function WalletCreator({ onWalletCreated, onClose, onTreasuryNameSet }: WalletCreatorProps) {
   const { address } = useAccount();
   const [signers, setSigners] = useState<string[]>(['']);
   const [threshold, setThreshold] = useState<number>(1);
@@ -21,22 +23,39 @@ export default function WalletCreator({ onWalletCreated, onClose }: WalletCreato
   const { data: createWalletData, writeContract, isPending } = useWriteContract();
 
   // Wait for transaction
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({
     hash: createWalletData,
   });
 
   // Reset form when wallet is created successfully
   useEffect(() => {
-    if (isSuccess) {
-      setSigners(['']);
-      setThreshold(1);
-      setWalletName('');
-      // Notify parent component that wallet was created
-      if (onWalletCreated) {
-        onWalletCreated();
+    if (isSuccess && receipt && walletName.trim()) {
+      try {
+        // Store the treasury name temporarily so it can be associated with the newly created wallet
+        // when the wallet list is refreshed
+        const tempTreasuryNames = JSON.parse(localStorage.getItem('temp_treasury_names') || '{}');
+        tempTreasuryNames[Date.now()] = walletName.trim();
+        localStorage.setItem('temp_treasury_names', JSON.stringify(tempTreasuryNames));
+        
+        // Pass the treasury name to the parent component
+        if (onTreasuryNameSet) {
+          onTreasuryNameSet(walletName.trim());
+        }
+        
+        // Reset form
+        setSigners(['']);
+        setThreshold(1);
+        setWalletName('');
+        
+        // Notify parent component that wallet was created
+        if (onWalletCreated) {
+          onWalletCreated();
+        }
+      } catch (error) {
+        console.error('Error processing wallet creation success:', error);
       }
     }
-  }, [isSuccess, onWalletCreated]);
+  }, [isSuccess, receipt, walletName, onWalletCreated, onTreasuryNameSet]);
 
   const addSigner = () => {
     setSigners([...signers, '']);
