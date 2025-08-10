@@ -38,7 +38,8 @@ export default function WalletNameEditor({ walletAddress, currentName, onNameUpd
       onNameUpdated(trimmedName);
       setIsEditing(false);
       setError(null);
-    } catch (error) {
+    } catch (err) {
+      console.error('Error saving wallet name:', err);
       setError('Failed to save wallet name');
     }
   };

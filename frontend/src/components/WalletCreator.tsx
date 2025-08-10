@@ -3,14 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { MultisigFactoryContract } from '../app/index';
-import { Plus, Building2, Users, Shield, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Building2, Users, Shield, CheckCircle, AlertCircle, X } from 'lucide-react';
 
 
 interface WalletCreatorProps {
   onWalletCreated?: () => void;
+  onClose?: () => void;
 }
 
-export default function WalletCreator({ onWalletCreated }: WalletCreatorProps) {
+export default function WalletCreator({ onWalletCreated, onClose }: WalletCreatorProps) {
   const { address } = useAccount();
   const [signers, setSigners] = useState<string[]>(['']);
   const [threshold, setThreshold] = useState<number>(1);
@@ -94,7 +95,15 @@ export default function WalletCreator({ onWalletCreated }: WalletCreatorProps) {
     <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
       <div className="max-w-2xl mx-auto">
         {/* Header Section */}
-        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 p-8 text-white">
+        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 p-8 text-white relative">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          )}
           <div className="text-center">
             <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Building2 className="w-8 h-8 text-white" />

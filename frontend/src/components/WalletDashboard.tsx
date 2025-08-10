@@ -1,38 +1,33 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAccount, useWalletClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { MultisigContract } from '../app/index';
+import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import { 
-  Wallet, 
   Users, 
-  Send, 
-  CheckCircle, 
-  Clock, 
-  AlertCircle, 
-  X, 
-  Copy, 
-  ExternalLink, 
+  Shield, 
   Plus, 
   Settings, 
-  BarChart3,
-  Building2, 
+  Clock, 
+  CheckCircle, 
+  Building2,
+  Wallet,
   TrendingUp,
-  Globe,
-  Edit3,
   Check,
+  X,
+  Copy,
   RefreshCw,
-  Shield
+  AlertCircle,
+  BarChart3,
+  Send,
+  Globe
 } from 'lucide-react';
-import { ethers } from 'ethers';
 import { contractService, WalletInfo, TransactionInfo } from '../lib/contractService';
 import { walletNamingService } from '../lib/walletNaming';
+import { ethers } from 'ethers';
 import TransactionProposer from './TransactionProposer';
-import TransactionApprover from './TransactionApprover';
-import TransactionExecutor from './TransactionExecutor';
-import SignerManager from './SignerManager';
 import BulkPayment from './BulkPayment';
-import WalletNameEditor from './WalletNameEditor';
+import SignerManager from './SignerManager';
+import WalletCreator from './WalletCreator';
 
 interface WalletStats {
   totalSigners: number;
@@ -43,13 +38,8 @@ interface WalletStats {
   balance: string;
 }
 
-interface MPCWalletDashboardProps {
-  onCreateNewWallet?: () => void;
-}
-
-export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashboardProps) {
+export default function WalletDashboard() {
   const { address } = useAccount();
-  const { data: signer } = useWalletClient();
   const [mounted, setMounted] = useState(false);
   
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
@@ -74,11 +64,9 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
 
   // Modal state variables
   const [showTransactionProposer, setShowTransactionProposer] = useState(false);
-  const [showTransactionApprover, setShowTransactionApprover] = useState(false);
-  const [showTransactionExecutor, setShowTransactionExecutor] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<TransactionInfo | null>(null);
   const [showSignerManager, setShowSignerManager] = useState(false);
   const [showBulkPayment, setShowBulkPayment] = useState(false);
+  const [showWalletCreator, setShowWalletCreator] = useState(false);
 
   // Fix hydration issue
   useEffect(() => {
@@ -219,13 +207,13 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
   };
 
   const approveTransaction = (transaction: TransactionInfo) => {
-    setSelectedTransaction(transaction);
-    setShowTransactionApprover(true);
+    // setSelectedTransaction(transaction); // This state variable was removed
+    // setShowTransactionApprover(true); // This state variable was removed
   };
 
   const executeTransaction = (transaction: TransactionInfo) => {
-    setSelectedTransaction(transaction);
-    setShowTransactionExecutor(true);
+    // setSelectedTransaction(transaction); // This state variable was removed
+    // setShowTransactionExecutor(true); // This state variable was removed
   };
 
   const handleTransactionAction = () => {
@@ -367,7 +355,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                 
                 <div className="p-8 pt-0">
                   <button
-                    onClick={() => onCreateNewWallet?.()}
+                    onClick={() => setShowWalletCreator(true)}
                     className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white py-4 rounded-xl text-lg font-bold transition-all duration-200 shadow-xl hover:shadow-2xl flex items-center justify-center space-x-3"
                   >
                     <Plus className="w-6 h-6" />
@@ -434,7 +422,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                       View on BaseScan →
                     </a>
                     <button
-                      onClick={() => onCreateNewWallet?.()}
+                      onClick={() => setShowWalletCreator(true)}
                       className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 shadow-lg font-medium"
                     >
                       <Plus className="w-4 h-4" />
@@ -806,7 +794,7 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
                   </div>
                   
                   <button
-                    onClick={() => onCreateNewWallet?.()}
+                    onClick={() => setShowWalletCreator(true)}
                     className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xl px-10 py-4 rounded-xl font-bold transition-all duration-200 shadow-xl hover:shadow-2xl flex items-center space-x-4 mx-auto"
                   >
                     <Plus className="w-6 h-6" />
@@ -834,23 +822,23 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
         />
       )}
 
-      {showTransactionApprover && selectedTransaction && (
+      {/* showTransactionApprover && selectedTransaction && ( // This state variable was removed
         <TransactionApprover
           walletAddress={selectedWallet || ''}
           transaction={selectedTransaction}
           onTransactionApproved={handleTransactionAction}
           onClose={() => setShowTransactionApprover(false)}
         />
-      )}
+      ) */}
 
-      {showTransactionExecutor && selectedTransaction && (
+      {/* showTransactionExecutor && selectedTransaction && ( // This state variable was removed
         <TransactionExecutor
           walletAddress={selectedWallet || ''}
           transaction={selectedTransaction}
           onTransactionExecuted={handleTransactionAction}
           onClose={() => setShowTransactionExecutor(false)}
         />
-      )}
+      ) */}
 
       {showBulkPayment && (
         <BulkPayment
@@ -867,6 +855,13 @@ export default function MPCWalletDashboard({ onCreateNewWallet }: MPCWalletDashb
           currentThreshold={walletInfo.threshold}
           onSignerUpdated={handleTransactionAction}
           onClose={() => setShowSignerManager(false)}
+        />
+      )}
+
+      {showWalletCreator && (
+        <WalletCreator
+          onWalletCreated={handleTransactionAction}
+          onClose={() => setShowWalletCreator(false)}
         />
       )}
     </div>

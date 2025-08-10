@@ -31,8 +31,6 @@ export default function Home() {
   const benefits = [
     'Multi-signature security for cNGN assets',
     'Bulk payroll and vendor payments',
-    'Real-time cNGN to NGN conversion rates',
-    'Regulatory compliance and audit trails',
     'Department-based access controls',
     'Open-source and fully transparent'
   ];
@@ -272,14 +270,6 @@ export default function Home() {
                 </div>
                 <div className="flex items-center justify-between p-5 bg-white rounded-xl shadow-sm">
                   <span className="font-semibold text-gray-900">cNGN Native Integration</span>
-                  <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                </div>
-                <div className="flex items-center justify-between p-5 bg-white rounded-xl shadow-sm">
-                  <span className="font-semibold text-gray-900">Regulatory Compliance</span>
-                  <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                </div>
-                <div className="flex items-center justify-between p-5 bg-white rounded-xl shadow-sm">
-                  <span className="font-semibold text-gray-900">Complete Audit Trail</span>
                   <div className="w-4 h-4 bg-green-500 rounded-full"></div>
                 </div>
                 <div className="flex items-center justify-between p-5 bg-white rounded-xl shadow-sm">

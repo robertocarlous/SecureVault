@@ -118,7 +118,6 @@ export default function MPCWalletPage() {
           <>
             <MPCWalletDashboard 
               key={refreshKey} 
-              onCreateNewWallet={() => setActiveView('create')}
             />
           </>
         )}

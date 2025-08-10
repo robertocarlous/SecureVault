@@ -1,7 +1,7 @@
 'use client';
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Shield, Users, Zap, Lock, Award, Heart, CheckCircle } from 'lucide-react';
+import { Shield, Users, Zap, Lock, Award, Heart, CheckCircle, Code, Database, Globe, Cpu } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AboutPage() {
@@ -37,21 +37,28 @@ export default function AboutPage() {
     'Scales with enterprise needs'
   ];
 
-  const team = [
+  
+
+  const securityStandards = [
     {
-      name: 'Alex Chen',
-      role: 'Founder & CEO',
-      bio: 'Former security architect with 15+ years in enterprise cybersecurity'
+      icon: Shield,
+      title: 'ISO 27001 Compliance',
+      description: 'Adherence to international information security management standards'
     },
     {
-      name: 'Sarah Johnson',
-      role: 'CTO',
-      bio: 'Blockchain expert specializing in MPC and cryptographic protocols'
+      icon: Lock,
+      title: 'SOC 2 Type II',
+      description: 'Service Organization Control compliance for security, availability, and confidentiality'
     },
     {
-      name: 'Michael Rodriguez',
-      role: 'Head of Security',
-      bio: 'Security specialist focused on enterprise-grade implementations'
+      icon: Award,
+      title: 'Regulatory Framework',
+      description: 'Built to meet Nigerian financial services and digital asset regulations'
+    },
+    {
+      icon: CheckCircle,
+      title: 'Industry Best Practices',
+      description: 'Following OWASP security guidelines and blockchain security standards'
     }
   ];
 
@@ -207,29 +214,26 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Team Section */}
+      {/* Security Standards Section */}
       <section className="py-20 gradient-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Meet Our Team
+              Security Standards & Compliance
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Security experts and blockchain specialists building the future of digital asset protection
+              Built to meet the highest industry standards and regulatory requirements for enterprise security
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {team.map((member, index) => (
-              <div key={index} className="card text-center">
-                <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-white font-bold text-xl">
-                    {member.name.split(' ').map(n => n[0]).join('')}
-                  </span>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {securityStandards.map((standard, index) => (
+              <div key={index} className="card text-center group hover:scale-105 transition-transform duration-300">
+                <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-slate-700 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:shadow-lg transition-shadow">
+                  <standard.icon className="w-10 h-10 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{member.name}</h3>
-                <p className="text-blue-600 font-medium mb-4">{member.role}</p>
-                <p className="text-gray-600">{member.bio}</p>
+                <h3 className="text-xl font-semibold mb-3 text-gray-900">{standard.title}</h3>
+                <p className="text-gray-600 leading-relaxed">{standard.description}</p>
               </div>
             ))}
           </div>
