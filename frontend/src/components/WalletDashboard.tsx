@@ -103,27 +103,6 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
       console.log('Found wallets:', wallets);
       setUserWallets(wallets);
       
-      // Check for temporary treasury names and associate them with newly created wallets
-      try {
-        const tempTreasuryNames = JSON.parse(localStorage.getItem('temp_treasury_names') || '{}');
-        const tempNames = Object.values(tempTreasuryNames) as string[];
-        
-        if (tempNames.length > 0 && wallets.length > 0) {
-          // Find wallets that don't have names yet and assign temporary names
-          wallets.forEach((wallet, index) => {
-            const existingName = walletNamingService.getWalletName(wallet);
-            if (!existingName && tempNames[index]) {
-              walletNamingService.setWalletName(wallet, tempNames[index]);
-            }
-          });
-          
-          // Clear temporary names
-          localStorage.removeItem('temp_treasury_names');
-        }
-      } catch (error) {
-        console.error('Error processing temporary treasury names:', error);
-      }
-      
       if (wallets.length > 0 && !selectedWallet) {
         setSelectedWallet(wallets[0]);
       }
@@ -251,6 +230,9 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
   };
 
   const handleTransactionAction = () => {
+    // Always refresh the wallet list to catch newly created treasuries
+    loadUserWallets();
+    
     if (selectedWallet) {
       loadTransactions();
       loadWalletInfo();
@@ -265,6 +247,27 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
       } finally {
         setIsRefreshing(false);
       }
+    }
+  };
+
+  const refreshAllData = async () => {
+    setIsRefreshing(true);
+    try {
+      
+      await Promise.all([
+        loadUserWallets(),
+        selectedWallet ? loadWalletInfo() : Promise.resolve(),
+        selectedWallet ? loadTransactions() : Promise.resolve()
+      ]);
+      
+      // Show success feedback
+      setCopiedAddress('refresh-success');
+      setTimeout(() => setCopiedAddress(null), 2000);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      setWalletError('Failed to refresh data');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -322,7 +325,12 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
       {copiedAddress && (
         <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center space-x-2">
           <Check className="w-4 h-4" />
-          <span>Address copied to clipboard!</span>
+          <span>
+            {copiedAddress === 'refresh-success' 
+              ? 'Data refreshed successfully!' 
+              : 'Address copied to clipboard!'
+            }
+          </span>
         </div>
       )}
 
@@ -356,6 +364,19 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
                     </div>
                     <h2 className="text-3xl font-bold mb-2">Select Enterprise Treasury</h2>
                     <p className="text-blue-100 text-lg">Choose a treasury to manage transactions and signers</p>
+                  </div>
+                  
+                  {/* Refresh button for wallet list */}
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={refreshAllData}
+                      disabled={isRefreshing}
+                      className="flex items-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Refresh treasury list"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <span>{isRefreshing ? 'Refreshing...' : 'Refresh List'}</span>
+                    </button>
                   </div>
                 </div>
                 
@@ -476,12 +497,13 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
                       <span>New Treasury</span>
                     </button>
                     <button
-                      onClick={refreshWalletData}
+                      onClick={refreshAllData}
                       disabled={isRefreshing}
-                      className="p-3 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100 transition-all duration-200 disabled:opacity-50"
-                      title="Refresh wallet data"
+                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 text-white rounded-xl hover:from-green-700 hover:to-emerald-800 transition-all duration-200 shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Refresh all wallet data"
                     >
-                      <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
                     </button>
                   </div>
                 </div>
@@ -847,6 +869,19 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
                     <Plus className="w-6 h-6" />
                     <span>Create Your First Treasury</span>
                   </button>
+                  
+                  {/* Refresh button for when no wallets exist */}
+                  <div className="mt-6">
+                    <button
+                      onClick={refreshAllData}
+                      disabled={isRefreshing}
+                      className="flex items-center space-x-2 px-6 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
+                      title="Refresh to check for new treasuries"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                    </button>
+                  </div>
                   
                   {!address && (
                     <p className="text-sm text-gray-500 mt-6">

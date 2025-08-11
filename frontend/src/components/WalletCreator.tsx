@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { MultisigFactoryContract } from '../app/index';
 import { Plus, Building2, Users, Shield, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { walletNamingService } from '../lib/walletNaming';
-
+import { contractService } from '../lib/contractService';
+import { ethers } from 'ethers';
 
 interface WalletCreatorProps {
   onWalletCreated?: () => void;
@@ -18,44 +19,10 @@ export default function WalletCreator({ onWalletCreated, onClose, onTreasuryName
   const [signers, setSigners] = useState<string[]>(['']);
   const [threshold, setThreshold] = useState<number>(1);
   const [walletName, setWalletName] = useState<string>('');
-
-  // Contract write hook for creating wallet
-  const { data: createWalletData, writeContract, isPending } = useWriteContract();
-
-  // Wait for transaction
-  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({
-    hash: createWalletData,
-  });
-
-  // Reset form when wallet is created successfully
-  useEffect(() => {
-    if (isSuccess && receipt && walletName.trim()) {
-      try {
-        // Store the treasury name temporarily so it can be associated with the newly created wallet
-        // when the wallet list is refreshed
-        const tempTreasuryNames = JSON.parse(localStorage.getItem('temp_treasury_names') || '{}');
-        tempTreasuryNames[Date.now()] = walletName.trim();
-        localStorage.setItem('temp_treasury_names', JSON.stringify(tempTreasuryNames));
-        
-        // Pass the treasury name to the parent component
-        if (onTreasuryNameSet) {
-          onTreasuryNameSet(walletName.trim());
-        }
-        
-        // Reset form
-        setSigners(['']);
-        setThreshold(1);
-        setWalletName('');
-        
-        // Notify parent component that wallet was created
-        if (onWalletCreated) {
-          onWalletCreated();
-        }
-      } catch (error) {
-        console.error('Error processing wallet creation success:', error);
-      }
-    }
-  }, [isSuccess, receipt, walletName, onWalletCreated, onTreasuryNameSet]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [creationStatus, setCreationStatus] = useState<'idle' | 'creating' | 'success' | 'error'>('idle');
+  const [createdWalletAddress, setCreatedWalletAddress] = useState<string>('');
+  const [error, setError] = useState<string>('');
 
   const addSigner = () => {
     setSigners([...signers, '']);
@@ -88,25 +55,91 @@ export default function WalletCreator({ onWalletCreated, onClose, onTreasuryName
     }
 
     if (validSigners.length === 0) {
-      alert('Please add at least one signer');
+      setError('Please add at least one signer');
       return;
     }
 
     if (threshold > validSigners.length) {
-      alert('Threshold cannot be greater than number of signers');
+      setError('Threshold cannot be greater than number of signers');
       return;
     }
 
+    if (!walletName.trim()) {
+      setError('Please enter a treasury name');
+      return;
+    }
+
+    setIsCreating(true);
+    setCreationStatus('creating');
+    setError('');
+
     try {
-      // Call the contract
-      writeContract({
-        address: MultisigFactoryContract.address as `0x${string}`,
-        abi: MultisigFactoryContract.abi,
-        functionName: 'createWallet',
-        args: [validSigners, threshold],
+      // Use the contract service to create the wallet
+      const txHash = await contractService.createWallet(validSigners, threshold);
+      
+      // Wait for the transaction to be mined
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const receipt = await provider.waitForTransaction(txHash);
+      
+      if (!receipt) {
+        throw new Error('Transaction receipt not found');
+      }
+      
+      // Parse the logs to find the WalletCreated event
+      const factory = new ethers.Contract(
+        MultisigFactoryContract.address,
+        MultisigFactoryContract.abi,
+        provider
+      );
+      
+      // Find the WalletCreated event in the transaction logs
+      const walletCreatedEvent = receipt.logs.find(log => {
+        try {
+          const parsedLog = factory.interface.parseLog(log);
+          return parsedLog?.name === 'WalletCreated';
+        } catch {
+          return false;
+        }
       });
+      
+      if (walletCreatedEvent) {
+        const parsedLog = factory.interface.parseLog(walletCreatedEvent);
+        const walletAddress = parsedLog?.args?.walletAddress;
+        
+        if (walletAddress) {
+          // Store the treasury name with the actual wallet address
+          walletNamingService.setWalletName(walletAddress, walletName.trim());
+          setCreatedWalletAddress(walletAddress);
+          setCreationStatus('success');
+          
+          console.log('Treasury created successfully:', {
+            address: walletAddress,
+            name: walletName.trim(),
+            signers: validSigners,
+            threshold
+          });
+          
+          // Reset form
+          setSigners(['']);
+          setThreshold(1);
+          setWalletName('');
+          
+          // Notify parent component that wallet was created
+          if (onWalletCreated) {
+            onWalletCreated();
+          }
+        } else {
+          throw new Error('Could not extract wallet address from transaction');
+        }
+      } else {
+        throw new Error('WalletCreated event not found in transaction');
+      }
     } catch (error) {
       console.error('Error creating wallet:', error);
+      setError(error instanceof Error ? error.message : 'Failed to create wallet');
+      setCreationStatus('error');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -141,14 +174,25 @@ export default function WalletCreator({ onWalletCreated, onClose, onTreasuryName
             <input
               type="text"
               value={walletName}
-              onChange={(e) => setWalletName(e.target.value)}
+              onChange={(e) => {
+                setWalletName(e.target.value);
+                if (error) setError('');
+              }}
               placeholder="e.g., Main Treasury, Payroll Wallet, Operations Fund"
-              className="w-full border-2 border-gray-200 rounded-xl px-4 py-4 text-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm"
+              className={`w-full border-2 rounded-xl px-4 py-4 text-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm ${
+                error ? 'border-red-300 bg-red-50' : 'border-gray-200'
+              }`}
             />
             <p className="text-sm text-gray-600 flex items-center">
               <Shield className="w-4 h-4 mr-2 text-blue-500" />
               Choose a descriptive name for easy identification across your organization
             </p>
+            {error && (
+              <p className="text-sm text-red-600 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                {error}
+              </p>
+            )}
           </div>
 
           {/* Authorized Signers */}
@@ -233,18 +277,13 @@ export default function WalletCreator({ onWalletCreated, onClose, onTreasuryName
           <div className="pt-4">
             <button
               onClick={handleCreateWallet}
-              disabled={isPending || isConfirming || !address}
+              disabled={isCreating || !address}
               className="w-full bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-900 text-white py-5 rounded-xl text-lg font-bold transition-all duration-200 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-xl flex items-center justify-center space-x-3"
             >
-              {isPending ? (
+              {isCreating ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   <span>Creating Treasury...</span>
-                </>
-              ) : isConfirming ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Confirming Transaction...</span>
                 </>
               ) : (
                 <>
@@ -256,14 +295,31 @@ export default function WalletCreator({ onWalletCreated, onClose, onTreasuryName
           </div>
 
           {/* Status Messages */}
-          {isSuccess && (
+          {creationStatus === 'success' && createdWalletAddress && (
             <div className="p-6 bg-green-50 border-2 border-green-200 text-green-800 rounded-xl">
               <div className="flex items-center space-x-3">
                 <CheckCircle className="w-6 h-6 text-green-600" />
                 <div>
                   <p className="font-bold text-lg">✅ Treasury Created Successfully!</p>
-                  <p className="text-sm mt-1">Transaction hash: {createWalletData}</p>
+                  <p className="text-sm mt-1">
+                    <span className="font-semibold">Name:</span> {walletName}
+                  </p>
+                  <p className="text-sm mt-1">
+                    <span className="font-semibold">Address:</span> {createdWalletAddress.slice(0, 8)}...{createdWalletAddress.slice(-6)}
+                  </p>
                   <p className="text-sm mt-2">Your enterprise treasury is now ready for secure cNGN management.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {creationStatus === 'error' && (
+            <div className="p-6 bg-red-50 border-2 border-red-200 text-red-800 rounded-xl">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+                <div>
+                  <p className="font-bold">⚠️ Treasury Creation Failed</p>
+                  <p className="text-sm mt-1">{error}</p>
                 </div>
               </div>
             </div>
