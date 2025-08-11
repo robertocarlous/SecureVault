@@ -10,7 +10,6 @@ import {
   Clock, 
   CheckCircle, 
   Building2,
-  Wallet,
   TrendingUp,
   Check,
   X,
@@ -22,7 +21,7 @@ import {
   Globe,
   Edit3
 } from 'lucide-react';
-import { contractService, WalletInfo, TransactionInfo } from '../lib/contractService';
+import { contractService, WalletInfo, TransactionInfo, TOKEN_ADDRESSES } from '../lib/contractService';
 import { walletNamingService } from '../lib/walletNaming';
 import { ethers } from 'ethers';
 import TransactionProposer from './TransactionProposer';
@@ -38,6 +37,7 @@ interface WalletStats {
   pendingTransactions: number;
   totalTransactions: number;
   balance: string;
+  cngnBalance: string; // Add cNGN token balance
 }
 
 export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasuryName?: string }) {
@@ -52,7 +52,8 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
     threshold: 0,
     pendingTransactions: 0,
     totalTransactions: 0,
-    balance: '0'
+    balance: '0',
+    cngnBalance: '0'
   });
   
   const [userWallets, setUserWallets] = useState<string[]>([]);
@@ -127,9 +128,10 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
         throw new Error('Invalid wallet contract');
       }
       
-      const [info, balance] = await Promise.all([
+      const [info, ethBalance, cngnBalance] = await Promise.all([
         contractService.getWalletInfo(selectedWallet),
-        contractService.getWalletBalance(selectedWallet)
+        contractService.getWalletBalance(selectedWallet), // Native ETH balance
+        contractService.getTokenBalance(selectedWallet, TOKEN_ADDRESSES.cNGN) // cNGN token balance
       ]);
       
       setWalletInfo(info);
@@ -147,7 +149,8 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
         threshold: info.threshold,
         pendingTransactions: info.pendingTransactions,
         totalTransactions: info.totalTransactions,
-        balance: parseFloat(balance).toFixed(4)
+        balance: parseFloat(ethBalance).toFixed(4),
+        cngnBalance: parseFloat(cngnBalance).toFixed(4)
       };
       
       setStats(newStats);
@@ -166,7 +169,8 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
         threshold: 0,
         pendingTransactions: 0,
         totalTransactions: 0,
-        balance: '0'
+        balance: '0',
+        cngnBalance: '0'
       });
       setIsCurrentUserSigner(false);
     } finally {
@@ -569,14 +573,19 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Treasury Balance</p>
-                          <p className="text-3xl font-bold text-gray-900">₦{stats.balance}</p>
+                          <p className="text-3xl font-bold text-gray-900">
+                            ₦{parseFloat(stats.cngnBalance).toLocaleString('en-NG', {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 2
+                            })}
+                          </p>
                           <p className="text-sm text-green-600 flex items-center mt-1">
                             <TrendingUp className="w-3 h-3 mr-1" />
-                            cNGN Assets
+                            cNGN Token Balance
                           </p>
                         </div>
                         <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                          <Wallet className="w-6 h-6 text-white" />
+                          <Globe className="w-6 h-6 text-white" />
                         </div>
                       </div>
                     </div>

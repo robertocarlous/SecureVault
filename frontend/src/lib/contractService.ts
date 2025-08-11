@@ -13,7 +13,7 @@ const ERC20_ABI = [
 
 // cNGN Configuration - update with real address
 const CNGN_CONFIG = {
-  CONTRACT_ADDRESS: '0x1a4b46696b2bb4794eb3d4c26f1c55f9170fa4c5', // Replace with actual cNGN address
+  CONTRACT_ADDRESS: '0xa1F8BD1892C85746AE71B97C31B1965C4641f1F0', // Actual cNGN contract on Base Sepolia
   DECIMALS: 18,
   SYMBOL: 'cNGN',
   NAME: 'Nigerian Naira Token'
@@ -168,11 +168,19 @@ class ContractService {
     if (!provider) throw new Error('Provider not initialized');
 
     try {
+      console.log('Getting token balance for:', { walletAddress, tokenAddress });
+      
       const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
       const balance = await tokenContract.balanceOf(walletAddress);
       const decimals = await tokenContract.decimals();
       
-      return ethers.formatUnits(balance, decimals);
+      console.log('Token balance raw:', balance.toString());
+      console.log('Token decimals:', decimals);
+      
+      const formattedBalance = ethers.formatUnits(balance, decimals);
+      console.log('Formatted token balance:', formattedBalance);
+      
+      return formattedBalance;
     } catch (error) {
       console.error('Error getting token balance:', error);
       return '0';
