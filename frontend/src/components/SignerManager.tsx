@@ -49,7 +49,7 @@ export default function SignerManager({
       if (!removeSigner) {
         newErrors.removeSigner = 'Please select a signer to remove';
       } else if (currentSigners.length - 1 < currentThreshold) {
-        newErrors.removeSigner = 'Cannot remove signer: threshold would be violated';
+        newErrors.removeSigner = `Cannot remove signer: threshold would be violated. Current threshold is ${currentThreshold} but removing would leave only ${currentSigners.length - 1} signers. Please reduce the threshold first.`;
       }
     } else if (action === 'threshold') {
       if (newThreshold <= 0 || newThreshold > currentSigners.length) {
@@ -217,9 +217,23 @@ export default function SignerManager({
                     </div>
                   ))}
                 </div>
-                <p className="text-sm text-gray-600 mt-3">
-                  Current threshold: {currentThreshold} of {currentSigners.length}
-                </p>
+                <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-600 mb-2">
+                    Current threshold: <span className="font-semibold text-gray-900">{currentThreshold} of {currentSigners.length}</span>
+                  </p>
+                  {currentSigners.length - 1 < currentThreshold && (
+                    <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                      <p className="font-medium mb-1">⚠️ Signer Removal Blocked</p>
+                      <p>Threshold too high to remove signers. Reduce threshold first.</p>
+                    </div>
+                  )}
+                  {currentSigners.length - 1 >= currentThreshold && (
+                    <div className="text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
+                      <p className="font-medium mb-1">✅ Signer Removal Allowed</p>
+                      <p>You can remove up to {currentSigners.length - currentThreshold} signer(s).</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Action Form */}
@@ -266,10 +280,36 @@ export default function SignerManager({
                     ))}
                   </select>
                   {errors.removeSigner && (
-                    <p className="text-sm text-red-600 mt-1 flex items-center">
-                      <AlertCircle className="w-4 h-4 mr-1" />
-                      {errors.removeSigner}
-                    </p>
+                    <div className="mt-3">
+                      <p className="text-sm text-red-600 mb-2 flex items-center">
+                        <AlertCircle className="w-4 h-4 mr-1" />
+                        {errors.removeSigner}
+                      </p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-sm text-blue-800 font-medium mb-2">💡 Solution:</p>
+                        <p className="text-sm text-blue-700 mb-3">
+                          To remove this signer, you need to reduce the threshold first:
+                        </p>
+                        <div className="space-y-2">
+                          <p className="text-sm text-blue-700">
+                            • Current: {currentThreshold} of {currentSigners.length} signers required
+                          </p>
+                          <p className="text-sm text-blue-700">
+                            • After removal: {currentSigners.length - 1} signers will remain
+                          </p>
+                          <p className="text-sm text-blue-700">
+                            • New threshold must be ≤ {currentSigners.length - 1}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAction('threshold')}
+                          className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Update Threshold First
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -290,8 +330,27 @@ export default function SignerManager({
                   <p className="text-sm text-gray-600 mt-2">
                     {newThreshold} of {currentSigners.length} signers required to approve transactions
                   </p>
+                  
+                  {/* Warning when reducing threshold */}
+                  {newThreshold < currentThreshold && (
+                    <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-sm text-amber-800 font-medium mb-2">⚠️ Threshold Reduction Warning:</p>
+                      <p className="text-sm text-amber-700 mb-2">
+                        Reducing the threshold from {currentThreshold} to {newThreshold} will:
+                      </p>
+                      <ul className="text-sm text-amber-700 space-y-1 mb-3">
+                        <li>• Make transactions easier to approve (less secure)</li>
+                        <li>• Allow you to remove up to {currentSigners.length - newThreshold} signers</li>
+                        <li>• Require only {newThreshold} approvals instead of {currentThreshold}</li>
+                      </ul>
+                      <p className="text-sm text-amber-700">
+                        After updating the threshold, you can return to the &quot;Remove&quot; tab to remove signers.
+                      </p>
+                    </div>
+                  )}
+                  
                   {errors.newThreshold && (
-                    <p className="text-sm text-red-600 mt-1 flex items-center">
+                    <p className="text-sm text-red-600 mt-2 flex items-center">
                       <AlertCircle className="w-4 h-4 mr-1" />
                       {errors.newThreshold}
                     </p>

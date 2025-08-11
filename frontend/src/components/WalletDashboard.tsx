@@ -29,6 +29,8 @@ import BulkPayment from './BulkPayment';
 import SignerManager from './SignerManager';
 import WalletCreator from './WalletCreator';
 import WalletNameEditor from './WalletNameEditor';
+import TransactionApprover from './TransactionApprover';
+import TransactionExecutor from './TransactionExecutor';
 
 interface WalletStats {
   totalSigners: number;
@@ -71,8 +73,11 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
   const [showBulkPayment, setShowBulkPayment] = useState(false);
   const [showWalletCreator, setShowWalletCreator] = useState(false);
   const [showWalletNameEditor, setShowWalletNameEditor] = useState(false);
+  const [showTransactionApprover, setShowTransactionApprover] = useState(false);
+  const [showTransactionExecutor, setShowTransactionExecutor] = useState(false);
   const [editingWalletAddress, setEditingWalletAddress] = useState<string>('');
   const [editingWalletName, setEditingWalletName] = useState<string>('');
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionInfo | null>(null);
 
   // Fix hydration issue
   useEffect(() => {
@@ -183,7 +188,34 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
     
     try {
       const txs = await contractService.getAllTransactions(selectedWallet);
-      setTransactions(txs);
+      
+      // Check approval status for current user if they're a signer
+      if (isCurrentUserSigner && address) {
+        const txsWithApprovalStatus = await Promise.all(
+          txs.map(async (tx) => {
+            try {
+              const approvalStatus = await contractService.getTransactionApprovalStatus(
+                selectedWallet,
+                tx.id,
+                address
+              );
+              return {
+                ...tx,
+                userHasApproved: approvalStatus.hasApproved
+              };
+            } catch (error) {
+              console.error(`Error getting approval status for tx ${tx.id}:`, error);
+              return {
+                ...tx,
+                userHasApproved: false
+              };
+            }
+          })
+        );
+        setTransactions(txsWithApprovalStatus);
+      } else {
+        setTransactions(txs);
+      }
     } catch (error) {
       console.error('Error loading transactions:', error);
       setTransactions([]);
@@ -224,13 +256,13 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
   };
 
   const approveTransaction = (transaction: TransactionInfo) => {
-    // setSelectedTransaction(transaction); // This state variable was removed
-    // setShowTransactionApprover(true); // This state variable was removed
+    setSelectedTransaction(transaction);
+    setShowTransactionApprover(true);
   };
 
   const executeTransaction = (transaction: TransactionInfo) => {
-    // setSelectedTransaction(transaction); // This state variable was removed
-    // setShowTransactionExecutor(true); // This state variable was removed
+    setSelectedTransaction(transaction);
+    setShowTransactionExecutor(true);
   };
 
   const handleTransactionAction = () => {
@@ -768,18 +800,42 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
                                     {tx.approvalCount < tx.threshold && (
                                       <button
                                         onClick={() => approveTransaction(tx)}
-                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                                        disabled={tx.userHasApproved}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                                          tx.userHasApproved
+                                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        }`}
+                                        title={
+                                          tx.userHasApproved
+                                            ? 'You have already approved this transaction'
+                                            : 'Approve this transaction'
+                                        }
                                       >
-                                        Approve
+                                        {tx.userHasApproved ? 'Already Approved' : 'Approve'}
                                       </button>
                                     )}
                                     {tx.approvalCount >= tx.threshold && (
                                       <button
                                         onClick={() => executeTransaction(tx)}
                                         className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                                        title="Execute this transaction"
                                       >
                                         Execute
                                       </button>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* Show approval status for current user */}
+                                {!tx.executed && isCurrentUserSigner && address && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {tx.userHasApproved ? (
+                                      <span className="text-blue-600">✓ You approved this transaction</span>
+                                    ) : tx.approvalCount < tx.threshold ? (
+                                      <span>You can approve this transaction</span>
+                                    ) : (
+                                      <span className="text-green-600">✓ Ready to execute</span>
                                     )}
                                   </div>
                                 )}
@@ -913,24 +969,6 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
         />
       )}
 
-      {/* showTransactionApprover && selectedTransaction && ( // This state variable was removed
-        <TransactionApprover
-          walletAddress={selectedWallet || ''}
-          transaction={selectedTransaction}
-          onTransactionApproved={handleTransactionAction}
-          onClose={() => setShowTransactionApprover(false)}
-        />
-      ) */}
-
-      {/* showTransactionExecutor && selectedTransaction && ( // This state variable was removed
-        <TransactionExecutor
-          walletAddress={selectedWallet || ''}
-          transaction={selectedTransaction}
-          onTransactionExecuted={handleTransactionAction}
-          onClose={() => setShowTransactionExecutor(false)}
-        />
-      ) */}
-
       {showBulkPayment && (
         <BulkPayment
           walletAddress={selectedWallet || ''}
@@ -962,6 +1000,24 @@ export default function WalletDashboard({ pendingTreasuryName }: { pendingTreasu
           currentName={editingWalletName}
           onNameUpdated={handleWalletNameUpdated}
           onClose={() => setShowWalletNameEditor(false)}
+        />
+      )}
+
+      {showTransactionApprover && selectedTransaction && (
+        <TransactionApprover
+          walletAddress={selectedWallet || ''}
+          transaction={selectedTransaction}
+          onTransactionApproved={handleTransactionAction}
+          onClose={() => setShowTransactionApprover(false)}
+        />
+      )}
+
+      {showTransactionExecutor && selectedTransaction && (
+        <TransactionExecutor
+          walletAddress={selectedWallet || ''}
+          transaction={selectedTransaction}
+          onTransactionExecuted={handleTransactionAction}
+          onClose={() => setShowTransactionExecutor(false)}
         />
       )}
     </div>

@@ -41,6 +41,7 @@ export interface TransactionInfo {
   threshold: number;
   token?: string;
   tokenSymbol?: string;
+  userHasApproved?: boolean; // Whether the current user has approved this transaction
 }
 
 export interface TokenBalance {
@@ -222,6 +223,66 @@ class ContractService {
     }
 
     return balances;
+  }
+
+  // Check if a signer has approved a specific transaction
+  async hasApprovedTransaction(walletAddress: string, transactionId: number, signerAddress: string): Promise<boolean> {
+    const provider = await this.getProvider();
+    if (!provider) throw new Error('Provider not initialized');
+
+    try {
+      const wallet = new ethers.Contract(
+        walletAddress,
+        MultisigContract.abi,
+        provider
+      );
+
+      const hasApproved = await wallet.hasApproved(transactionId, signerAddress);
+      return hasApproved;
+    } catch (error) {
+      console.error('Error checking approval status:', error);
+      return false;
+    }
+  }
+
+  // Get transaction approval status for a specific signer
+  async getTransactionApprovalStatus(walletAddress: string, transactionId: number, signerAddress: string): Promise<{
+    hasApproved: boolean;
+    approvalCount: number;
+    threshold: number;
+    executed: boolean;
+  }> {
+    const provider = await this.getProvider();
+    if (!provider) throw new Error('Provider not initialized');
+
+    try {
+      const wallet = new ethers.Contract(
+        walletAddress,
+        MultisigContract.abi,
+        provider
+      );
+
+      const [hasApproved, [, threshold], [to, value, data, executed, approvalCount]] = await Promise.all([
+        wallet.hasApproved(transactionId, signerAddress),
+        wallet.getWalletStatus(),
+        wallet.getTransaction(transactionId)
+      ]);
+
+      return {
+        hasApproved,
+        approvalCount: Number(approvalCount),
+        threshold: Number(threshold),
+        executed
+      };
+    } catch (error) {
+      console.error('Error getting transaction approval status:', error);
+      return {
+        hasApproved: false,
+        approvalCount: 0,
+        threshold: 0,
+        executed: false
+      };
+    }
   }
 
   async getAllTransactions(walletAddress: string): Promise<TransactionInfo[]> {
